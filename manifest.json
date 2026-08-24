@@ -1,0 +1,16 @@
+{
+    "display_name": "Diceroll",
+    "loading_order": 100,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "permissionBRICK",
+    "version": "1.0.0",
+    "homePage": "https://github.com/permissionBRICK/ST-Diceroll",
+    "minimum_client_version": "1.18.0",
+    "generate_interceptor": "dicerollGenerateInterceptor",
+    "hooks": {
+        "activate": "init"
+    }
+}

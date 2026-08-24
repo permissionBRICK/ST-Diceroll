@@ -1,0 +1,83 @@
+<div id="diceroll_settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b data-i18n="ext_diceroll_title">Diceroll</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <label class="checkbox_label" for="diceroll_enabled">
+                <input id="diceroll_enabled" type="checkbox" />
+                <span data-i18n="ext_diceroll_enable">Enable Diceroll</span>
+            </label>
+            <small data-i18n="ext_diceroll_help">Before each response, the current model is quietly asked (with the exact same chat history, so the prompt cache is reused) to list short options for how the story could continue, each with a probability. A weighted dice roll picks one, and the chosen direction is injected after the latest user message for that one generation only — it is never saved to the chat, and the next turn's history stays clean.</small>
+
+            <label class="checkbox_label" for="diceroll_roll_on_swipe">
+                <input id="diceroll_roll_on_swipe" type="checkbox" />
+                <span data-i18n="ext_diceroll_roll_on_swipe">Roll again on swipes and regenerates</span>
+            </label>
+            <small data-i18n="ext_diceroll_roll_on_swipe_help">When off, swiping or regenerating reuses the direction already rolled for that turn.</small>
+
+            <label class="checkbox_label" for="diceroll_structured">
+                <input id="diceroll_structured" type="checkbox" />
+                <span data-i18n="ext_diceroll_structured">Request structured output (JSON schema)</span>
+            </label>
+            <small data-i18n="ext_diceroll_structured_help">Turn off if your backend rejects requests containing a JSON schema; the options are then parsed from plain text.</small>
+
+            <label class="checkbox_label" for="diceroll_notify">
+                <input id="diceroll_notify" type="checkbox" />
+                <span data-i18n="ext_diceroll_notify">Show a notification with the rolled outcome</span>
+            </label>
+
+            <label class="checkbox_label" for="diceroll_debug">
+                <input id="diceroll_debug" type="checkbox" />
+                <span data-i18n="ext_diceroll_debug">Debug: show the roll table and injected direction under each message</span>
+            </label>
+
+            <div class="flex-container">
+                <div class="flex1">
+                    <label for="diceroll_min_options" data-i18n="ext_diceroll_min">Min options</label>
+                    <input id="diceroll_min_options" class="text_pole" type="number" min="2" max="20" step="1" />
+                </div>
+                <div class="flex1">
+                    <label for="diceroll_max_options" data-i18n="ext_diceroll_max">Max options</label>
+                    <input id="diceroll_max_options" class="text_pole" type="number" min="2" max="20" step="1" />
+                </div>
+            </div>
+
+            <div class="flex-container">
+                <div class="flex1">
+                    <label for="diceroll_options_role" data-i18n="ext_diceroll_options_role">Option request sent as</label>
+                    <select id="diceroll_options_role" class="text_pole">
+                        <option value="system" data-i18n="ext_diceroll_role_system">System message</option>
+                        <option value="user" data-i18n="ext_diceroll_role_user">User message</option>
+                    </select>
+                </div>
+                <div class="flex1">
+                    <label for="diceroll_direction_role" data-i18n="ext_diceroll_direction_role">Direction sent as</label>
+                    <select id="diceroll_direction_role" class="text_pole">
+                        <option value="system" data-i18n="ext_diceroll_role_system">System message</option>
+                        <option value="user" data-i18n="ext_diceroll_role_user">User message</option>
+                    </select>
+                </div>
+            </div>
+
+            <label for="diceroll_skip_inject_ids" data-i18n="ext_diceroll_skip_inject_ids">Skip when these /inject ids are active (comma-separated)</label>
+            <input id="diceroll_skip_inject_ids" class="text_pole" type="text" placeholder="instruct" />
+            <small data-i18n="ext_diceroll_skip_inject_ids_help">When another tool steers the reply with its own instruction — e.g. Guided Generations' guided response/swipe use /inject id=instruct — Diceroll stays out of the way and neither rolls nor injects a direction for that generation. Generations triggered with a custom prompt are skipped as well.</small>
+
+            <label for="diceroll_options_prompt" data-i18n="ext_diceroll_options_prompt">Option-generation prompt (\{{min}}, \{{max}} available)</label>
+            <textarea id="diceroll_options_prompt" class="text_pole textarea_compact" rows="7"></textarea>
+            <div id="diceroll_options_prompt_restore" class="menu_button menu_button_icon">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span data-i18n="ext_diceroll_restore">Restore default</span>
+            </div>
+
+            <label for="diceroll_direction_template" data-i18n="ext_diceroll_direction_template">Direction message template (\{{outcome}}, \{{probability}} available)</label>
+            <textarea id="diceroll_direction_template" class="text_pole textarea_compact" rows="4"></textarea>
+            <div id="diceroll_direction_template_restore" class="menu_button menu_button_icon">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span data-i18n="ext_diceroll_restore">Restore default</span>
+            </div>
+        </div>
+    </div>
+</div>

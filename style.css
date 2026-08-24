@@ -1,0 +1,42 @@
+.diceroll_debug {
+    margin-top: 5px;
+    padding: 5px 10px;
+    border: 1px dashed var(--SmartThemeBorderColor, #888);
+    border-radius: 5px;
+    font-size: calc(var(--mainFontSize) * 0.85);
+    opacity: 0.85;
+}
+
+.diceroll_debug summary {
+    cursor: pointer;
+}
+
+.diceroll_debug_table {
+    border-collapse: collapse;
+    margin: 5px 0;
+    width: 100%;
+}
+
+.diceroll_debug_table td {
+    padding: 1px 8px 1px 0;
+    vertical-align: top;
+    border: none;
+}
+
+.diceroll_debug_table td:first-child {
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    width: 1%;
+}
+
+.diceroll_debug_table tr.diceroll_chosen {
+    font-weight: bold;
+    color: var(--SmartThemeQuoteColor, inherit);
+}
+
+.diceroll_debug_direction {
+    white-space: pre-wrap;
+    font-style: italic;
+    margin-top: 4px;
+}
