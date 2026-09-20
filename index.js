@@ -1,4 +1,4 @@
-import { extension_settings, renderExtensionTemplateAsync, saveMetadataDebounced } from '../../../extensions.js';
+import { extension_settings, getContext, renderExtensionTemplateAsync, saveMetadataDebounced } from '../../../extensions.js';
 import {
     chat,
     chat_metadata,
@@ -7,6 +7,8 @@ import {
     extension_prompt_roles,
     extension_prompt_types,
     generateQuietPrompt,
+    Generate,
+    isGenerating,
     saveChatDebounced,
     saveSettingsDebounced,
     setExtensionPrompt,
@@ -96,6 +98,53 @@ let stampedMesId = null;
 // (e.g. a swipe/regenerate triggered with an additional instruction). Tracked via
 // GENERATION_STARTED because the interceptor does not receive the generation params.
 let mainGenHasCustomPrompt = false;
+
+// Exists only while a debug choice is regenerating its reply.
+let debugSelection = null;
+
+async function regenerateWithChoice(chatId, sourceData, chosenIndex) {
+    const s = getSettings();
+    const message = chat[chatId];
+    if (!s.enabled || !s.debugDisplay || debugSelection || isGenerating()
+        || chatId !== chat.length - 1 || !message || message.is_user || message.is_system
+        || message.extra?.diceroll !== sourceData || !sourceData.options[chosenIndex]) {
+        return;
+    }
+    if ($('#chat .mes .edit_textarea').length) {
+        toastr.warning('Finish editing before choosing a direction.', 'Diceroll');
+        return;
+    }
+
+    const context = getContext();
+    const args = {};
+    if (context.groupId) {
+        const characterId = context.characters.findIndex(character => character.avatar === message.original_avatar);
+        if (characterId < 0) {
+            toastr.warning('The author of this reply is no longer available.', 'Diceroll');
+            return;
+        }
+        args.force_chid = characterId;
+    }
+    const data = structuredClone(sourceData);
+    data.anchor = chat.findLastIndex(x => x.is_user);
+    data.chosenIndex = chosenIndex;
+    data.roll = null;
+    data.direction = buildDirectionText(data, s);
+    const selection = { data, metadata: chat_metadata, consumed: false };
+    debugSelection = selection;
+    try {
+        await Generate('regenerate', args);
+    } catch (error) {
+        console.error('[Diceroll] Choice regeneration failed:', error);
+        toastr.error('Could not regenerate the reply with this direction.', 'Diceroll');
+    } finally {
+        if (debugSelection === selection) {
+            debugSelection = null;
+            clearDirectionInjection();
+            renderAllDebug();
+        }
+    }
+}
 
 globalThis.dicerollGenerateInterceptor = (...args) => onGenerationIntercept(...args);
 
@@ -314,7 +363,8 @@ async function onGenerationIntercept(coreChat, _contextSize, _abort, type) {
     // Tool-call recursion re-enters Generate as 'normal'; keep the current steering untouched
     // instead of rolling again mid-turn.
     const lastMessage = chat[chat.length - 1];
-    if (lastMessage && !lastMessage.is_user && Array.isArray(lastMessage.extra?.tool_invocations)) {
+    if (lastMessage && !lastMessage.is_user && Array.isArray(lastMessage.extra?.tool_invocations)
+        && !(debugSelection && !debugSelection.consumed)) {
         return;
     }
 
@@ -332,6 +382,18 @@ async function onGenerationIntercept(coreChat, _contextSize, _abort, type) {
     // the new generation starts instead of leaving it stuck until the result arrives.
     if (type === 'swipe' || type === 'regenerate') {
         $(`#chat .mes[mesid="${chat.length - 1}"] .diceroll_debug`).remove();
+    }
+
+    // A clicked choice bypasses both option generation and roll-on-swipe, once only.
+    if (debugSelection && !debugSelection.consumed && type === 'regenerate'
+        && debugSelection.metadata === chat_metadata) {
+        debugSelection.consumed = true;
+        const data = debugSelection.data;
+        chat_metadata[METADATA_KEY] = data;
+        saveMetadataDebounced();
+        pendingStamp = data;
+        setDirectionInjection(data.direction, s.directionRole);
+        return;
     }
 
     // A guided swipe/response (or any generation carrying its own instruction) takes precedence:
@@ -448,7 +510,16 @@ function renderDebugForMessage(chatId) {
     data.options.forEach((option, index) => {
         const row = $('<tr></tr>').toggleClass('diceroll_chosen', index === data.chosenIndex);
         row.append($('<td></td>').text(`${formatProbability(option.probability)}%`));
-        row.append($('<td></td>').text(option.text));
+        const cell = $('<td></td>');
+        if (getSettings().enabled && chatId === chat.length - 1 && !message.is_user && !message.is_system) {
+            cell.append($('<button type="button" class="diceroll_choice"></button>')
+                .text(option.text)
+                .attr('title', 'Regenerate this reply with this direction, without rerolling choices')
+                .on('click', () => regenerateWithChoice(chatId, data, index)));
+        } else {
+            cell.text(option.text);
+        }
+        row.append(cell);
         table.append(row);
     });
     details.append(table);
@@ -569,6 +640,7 @@ async function init() {
     });
     eventSource.on(event_types.MESSAGE_SWIPED, (chatId) => renderDebugForMessage(chatId));
     eventSource.on(event_types.CHAT_CHANGED, () => {
+        debugSelection = null;
         pendingStamp = null;
         stampedMesId = null;
         clearDirectionInjection();

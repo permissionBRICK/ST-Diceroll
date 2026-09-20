@@ -1,1 +1,1 @@
-{"name":"st-diceroll","version":"1.0.0","private":true,"type":"module","scripts":{"test":"node --check index.js && node test/validate.mjs"}}
+{"name":"st-diceroll","version":"1.0.1","private":true,"type":"module","scripts":{"test":"node --check index.js && node test/validate.mjs && node test/debug-choice.mjs"}}
