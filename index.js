@@ -1,4 +1,5 @@
-import { extension_settings, getContext, renderExtensionTemplateAsync, saveMetadataDebounced } from '../../../extensions.js';
+import { extension_settings, renderExtensionTemplateAsync, saveMetadataDebounced } from '../../../extensions.js';
+import { SWIPE_DIRECTION } from '../../../constants.js';
 import {
     chat,
     chat_metadata,
@@ -7,12 +8,12 @@ import {
     extension_prompt_roles,
     extension_prompt_types,
     generateQuietPrompt,
-    Generate,
     isGenerating,
     saveChatDebounced,
     saveSettingsDebounced,
     setExtensionPrompt,
     substituteParams,
+    swipe,
 } from '../../../../script.js';
 
 export { init };
@@ -115,16 +116,6 @@ async function regenerateWithChoice(chatId, sourceData, chosenIndex) {
         return;
     }
 
-    const context = getContext();
-    const args = {};
-    if (context.groupId) {
-        const characterId = context.characters.findIndex(character => character.avatar === message.original_avatar);
-        if (characterId < 0) {
-            toastr.warning('The author of this reply is no longer available.', 'Diceroll');
-            return;
-        }
-        args.force_chid = characterId;
-    }
     const data = structuredClone(sourceData);
     data.anchor = chat.findLastIndex(x => x.is_user);
     data.chosenIndex = chosenIndex;
@@ -133,7 +124,13 @@ async function regenerateWithChoice(chatId, sourceData, chosenIndex) {
     const selection = { data, metadata: chat_metadata, consumed: false };
     debugSelection = selection;
     try {
-        await Generate('regenerate', args);
+        // Core swipe saves the current reply and its metadata, appends a new slot, and
+        // handles generation/failure recovery. Jump past all existing swipes even when
+        // the user is currently viewing an earlier one.
+        await swipe(null, SWIPE_DIRECTION.RIGHT, {
+            message,
+            forceSwipeId: Math.max(1, message.swipes?.length ?? 0),
+        });
     } catch (error) {
         console.error('[Diceroll] Choice regeneration failed:', error);
         toastr.error('Could not regenerate the reply with this direction.', 'Diceroll');
@@ -385,7 +382,7 @@ async function onGenerationIntercept(coreChat, _contextSize, _abort, type) {
     }
 
     // A clicked choice bypasses both option generation and roll-on-swipe, once only.
-    if (debugSelection && !debugSelection.consumed && type === 'regenerate'
+    if (debugSelection && !debugSelection.consumed && type === 'swipe'
         && debugSelection.metadata === chat_metadata) {
         debugSelection.consumed = true;
         const data = debugSelection.data;
@@ -514,7 +511,7 @@ function renderDebugForMessage(chatId) {
         if (getSettings().enabled && chatId === chat.length - 1 && !message.is_user && !message.is_system) {
             cell.append($('<button type="button" class="diceroll_choice"></button>')
                 .text(option.text)
-                .attr('title', 'Regenerate this reply with this direction, without rerolling choices')
+                .attr('title', 'Generate a new swipe with this direction, keeping all previous swipes')
                 .on('click', () => regenerateWithChoice(chatId, data, index)));
         } else {
             cell.text(option.text);

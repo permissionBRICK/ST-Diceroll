@@ -20,7 +20,7 @@ Requires SillyTavern 1.18.0 or newer. Enable and configure it under **Extensions
 - Uses JSON Schema structured output when the active provider supports it, with a tolerant text parser as fallback.
 - Normalizes malformed or non-100% probability sets before rolling.
 - Can reuse a roll on swipe, show the roll under the message for debugging, and skip generations already steered by Guided Generations.
-- In debug mode, click a choice under the latest reply to regenerate that reply with the selected direction. This reuses the displayed choices even when rerolling on swipes is enabled.
+- In debug mode, click a choice under the latest reply to generate a new swipe with the selected direction. All previous swipes are kept. This reuses the displayed choices even when rerolling on swipes is enabled.
 - Stores roll metadata with the chat; it does not store credentials or send data anywhere except the already configured model API.
 
 ## Development

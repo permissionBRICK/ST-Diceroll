@@ -6,17 +6,23 @@ const source = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8')
     .replace(/^import [\s\S]*? from ['"][^'"]+['"];\n/gm, '')
     .replace('export { init };', '');
 
-function setup({ rollOnSwipe = true, busy = false } = {}) {
+function setup({ rollOnSwipe = true, busy = false, swipeId = 0, swipes = ['First reply', 'Second reply', 'Third reply'] } = {}) {
     const buttons = [];
     const injections = new Map();
     const handlers = new Map();
-    const state = { generations: 0, optionRequests: 0, busy, groupId: null, characters: [] };
+    const state = { generations: 0, optionRequests: 0, busy };
     const data = {
         anchor: 0, chosenIndex: 0, roll: 2, total: 100,
         options: [{ text: 'Open the door', probability: 75 }, { text: 'Run away', probability: 25 }],
         direction: 'old direction',
     };
-    const chat = [{ is_user: true }, { is_user: false, extra: { diceroll: data } }];
+    const chat = [{ is_user: true }, {
+        is_user: false, mes: swipes?.[swipeId] ?? 'Original reply', extra: { diceroll: data },
+        ...(swipes ? {
+            swipe_id: swipeId, swipes: [...swipes],
+            swipe_info: swipes.map((_, index) => ({ extra: { diceroll: { ...structuredClone(data), chosenIndex: index % 2 } } })),
+        } : {}),
+    }];
     function $(selector) {
         const element = {
             length: String(selector).includes('edit_textarea') ? 0 : 1,
@@ -40,25 +46,39 @@ function setup({ rollOnSwipe = true, busy = false } = {}) {
         setExtensionPrompt: (id, text) => injections.set(id, text),
         substituteParams: text => text,
         isGenerating: () => state.busy,
-        getContext: () => state,
+        SWIPE_DIRECTION: { RIGHT: 'right' },
         toastr: { warning() {}, error() {}, info() {} },
         generateQuietPrompt: async () => {
             state.optionRequests++;
             return JSON.stringify({ options: data.options });
         },
-        Generate: async (type, args) => {
+        Generate: () => { throw new Error('Destructive regeneration must not be used'); },
+        swipe: async (event, direction, args) => {
+            assert.equal(event, null);
+            assert.equal(direction, 'right');
+            assert.equal(args.message, chat[1]);
+            assert.equal(args.forceSwipeId, Math.max(1, chat[1].swipes?.length ?? 0));
             state.generations++;
-            state.args = args;
-            if (state.generateOverride) return state.generateOverride(type, args);
-            // Regenerate removes the old reply before running interceptors.
-            chat.pop();
+            if (state.generateOverride) return state.generateOverride();
+            // Model core swipe bookkeeping: save the visible variant, append at the end,
+            // keep the message object, and stamp the new variant before saving it.
+            const message = chat[1];
+            message.swipe_id ??= 0;
+            message.swipes ??= [message.mes];
+            message.swipe_info ??= [];
+            message.swipes[message.swipe_id] = message.mes;
+            message.swipe_info[message.swipe_id] = { extra: structuredClone(message.extra) };
+            message.swipe_id = args.forceSwipeId;
+            const type = 'swipe';
             await handlers.get('GENERATION_STARTED')(type, {}, false);
             await sandbox.dicerollGenerateInterceptor(chat, 0, () => {}, type);
             state.direction = injections.get('diceroll_direction');
             handlers.get('GENERATION_ENDED')(); // Streaming ends before the message event.
-            chat.push({ is_user: false, extra: {} });
+            message.mes = 'New reply';
+            message.swipes.push(message.mes);
             handlers.get('MESSAGE_RECEIVED')(1, type);
             handlers.get('CHARACTER_MESSAGE_RENDERED')(1, type);
+            message.swipe_info[message.swipe_id] = { extra: structuredClone(message.extra) };
         },
     };
     vm.createContext(sandbox);
@@ -115,14 +135,29 @@ for (const invalid of ['busy', 'older', 'stale', 'disabled']) {
     assert.equal(t.state.generations, 2, 'early return must release the selection');
 }
 
-{
-    const t = setup();
+// Appending from any existing variant must preserve every prior text and its roll data.
+for (const swipeId of [0, 1, 2]) {
+    const t = setup({ swipeId });
     await t.sandbox.api.init();
-    t.state.groupId = 'group';
-    t.state.characters = [{ avatar: 'one.png' }, { avatar: 'two.png' }];
-    t.chat[1].original_avatar = 'two.png';
+    const original = t.chat[1];
+    const oldSwipes = [...original.swipes];
+    const oldInfo = structuredClone(original.swipe_info);
+    oldInfo[swipeId] = { extra: structuredClone(original.extra) };
     await t.sandbox.api.regenerateWithChoice(1, t.data, 1);
-    assert.equal(t.state.args.force_chid, 1, 'regenerate only the author of the selected reply');
+    assert.equal(t.chat[1], original);
+    assert.equal(original.swipe_id, 3);
+    assert.deepEqual(original.swipes, [...oldSwipes, 'New reply']);
+    assert.deepEqual(original.swipe_info.slice(0, 3), oldInfo);
+    assert.equal(original.swipe_info[3].extra.diceroll.chosenIndex, 1);
     assert.equal(t.state.optionRequests, 0);
+}
+
+{
+    const t = setup({ swipes: null });
+    await t.sandbox.api.init();
+    await t.sandbox.api.regenerateWithChoice(1, t.data, 1);
+    assert.deepEqual(t.chat[1].swipes, ['Original reply', 'New reply']);
+    assert.equal(t.chat[1].swipe_info[0].extra.diceroll.chosenIndex, 0);
+    assert.equal(t.chat[1].swipe_info[1].extra.diceroll.chosenIndex, 1);
 }
 console.log('Debug choice regression checks passed.');
