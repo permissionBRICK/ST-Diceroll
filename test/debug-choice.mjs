@@ -46,6 +46,7 @@ function setup({ rollOnSwipe = true, busy = false, swipeId = 0, swipes = ['First
         setExtensionPrompt: (id, text) => injections.set(id, text),
         substituteParams: text => text,
         isGenerating: () => state.busy,
+        main_api: 'openai', oai_settings: {}, getChatCompletionModel: () => 'test-model',
         SWIPE_DIRECTION: { RIGHT: 'right' },
         toastr: { warning() {}, error() {}, info() {} },
         generateQuietPrompt: async () => {

@@ -9,12 +9,14 @@ import {
     extension_prompt_types,
     generateQuietPrompt,
     isGenerating,
+    main_api,
     saveChatDebounced,
     saveSettingsDebounced,
     setExtensionPrompt,
     substituteParams,
     swipe,
 } from '../../../../script.js';
+import { getChatCompletionModel, oai_settings } from '../../../openai.js';
 
 export { init };
 
@@ -199,6 +201,15 @@ function formatProbability(value) {
 }
 
 /**
+ * Claude places a requested JSON schema as extra instructions ahead of the whole prompt, so a
+ * schema-constrained option request could never share the prompt cache with the reply itself.
+ * @returns {boolean} True when the active chat-completion model is a Claude model
+ */
+function isClaudeModel() {
+    return main_api === 'openai' && /claude|^anthropic\//i.test(String(getChatCompletionModel(oai_settings) ?? ''));
+}
+
+/**
  * Runs the option-generation request: the full current chat history plus the instruction injected
  * at depth 0, through the currently selected model/API.
  * @param {object} s Settings
@@ -214,7 +225,7 @@ async function generateOptions(s) {
     try {
         return await generateQuietPrompt({
             quietPrompt: '',
-            jsonSchema: s.useStructuredOutput ? OPTIONS_SCHEMA : null,
+            jsonSchema: s.useStructuredOutput && !isClaudeModel() ? OPTIONS_SCHEMA : null,
         });
     } finally {
         setExtensionPrompt(OPTIONS_INJECT_ID, '', extension_prompt_types.IN_CHAT, 0);

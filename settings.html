@@ -21,7 +21,7 @@
                 <input id="diceroll_structured" type="checkbox" />
                 <span data-i18n="ext_diceroll_structured">Request structured output (JSON schema)</span>
             </label>
-            <small data-i18n="ext_diceroll_structured_help">Turn off if your backend rejects requests containing a JSON schema; the options are then parsed from plain text.</small>
+            <small data-i18n="ext_diceroll_structured_help">Turn off if your backend rejects requests containing a JSON schema; the options are then parsed from plain text. Claude models always use plain text, because a schema would keep the option request from reusing the reply's prompt cache.</small>
 
             <label class="checkbox_label" for="diceroll_notify">
                 <input id="diceroll_notify" type="checkbox" />
