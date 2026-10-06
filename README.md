@@ -18,7 +18,6 @@ Requires SillyTavern 1.18.0 or newer. Enable and configure it under **Extensions
 
 - Supports normal replies, swipes, and regenerations.
 - Uses JSON Schema structured output when the active provider supports it, with a tolerant text parser as fallback. Claude models always use the text parser: Anthropic places the schema ahead of the prompt, so the option request could otherwise not share the prompt cache with the reply.
-- Sends the option request and the rolled direction as a system message to Claude and as a user message to other models (the default, "Automatic"). Many providers move a system message that follows the chat up into the system prompt (DeepInfra's MiMo does), so a new roll each turn would leave only the system prompt cacheable. Both roles can be set by hand.
 - Normalizes malformed or non-100% probability sets before rolling.
 - Can reuse a roll on swipe, show the roll under the message for debugging, and skip generations already steered by Guided Generations.
 - In debug mode, click a choice under the latest reply to generate a new swipe with the selected direction. All previous swipes are kept. This reuses the displayed choices even when rerolling on swipes is enabled.
