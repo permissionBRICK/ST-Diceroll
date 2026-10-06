@@ -71,8 +71,9 @@ const defaultSettings = {
     enabled: false,
     // When false, swipes/regenerates reuse the direction already rolled for that message.
     rollOnSwipe: false,
-    optionsRole: 'system',
-    directionRole: 'system',
+    // 'auto': system for Claude, user for everything else (see getRole()).
+    optionsRole: 'auto',
+    directionRole: 'auto',
     minOptions: 5,
     maxOptions: 10,
     useStructuredOutput: true,
@@ -155,6 +156,18 @@ function getSettings() {
     if (extension_settings[MODULE] === undefined) {
         extension_settings[MODULE] = {};
     }
+    const settings = extension_settings[MODULE];
+    // Up to 1.0.3 'system' was the default and got stored on first load, so a stored 'system' is
+    // moved to 'auto' once. Claude still gets a system message; a later explicit choice stays.
+    if (settings.autoRoles !== true) {
+        for (const key of ['optionsRole', 'directionRole']) {
+            if (settings[key] === 'system') {
+                settings[key] = 'auto';
+            }
+        }
+        settings.autoRoles = true;
+        saveSettingsDebounced();
+    }
     for (const key of Object.keys(defaultSettings)) {
         if (extension_settings[MODULE][key] === undefined) {
             extension_settings[MODULE][key] = structuredClone(defaultSettings[key]);
@@ -183,8 +196,18 @@ function hasManualSteering(s) {
         .some(id => String(injects[id]?.value ?? '').trim());
 }
 
+/**
+ * Resolves a role setting. 'auto' sends the injection as a system message to Claude and as a user
+ * message to every other model: many providers fold a system message that follows the chat into
+ * the system prompt at the top (measured on DeepInfra's MiMo through OpenRouter), so a new roll
+ * each turn changed the prompt right after the system prompt and only that part could come from
+ * the prompt cache. Claude keeps a trailing system message in place.
+ * @param {string} name 'auto', 'system' or 'user'
+ * @returns {number} Extension prompt role
+ */
 function getRole(name) {
-    return name === 'user' ? extension_prompt_roles.USER : extension_prompt_roles.SYSTEM;
+    const role = name === 'auto' ? (isClaudeModel() ? 'system' : 'user') : name;
+    return role === 'user' ? extension_prompt_roles.USER : extension_prompt_roles.SYSTEM;
 }
 
 function setDirectionInjection(text, roleName) {
